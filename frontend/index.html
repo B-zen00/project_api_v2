@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Dashboard V2</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0d0f14; --bg2:#131620; --bg3:#1a1e2e; --bg4:#1f2438;
+    --border:#ffffff12; --border2:#ffffff20;
+    --text:#e8eaf0; --text2:#8b93a8; --text3:#5a6178;
+    --accent:#7c6fff; --accent2:#5b4fe0;
+    --green:#22d87a; --green-bg:#22d87a18;
+    --red:#ff4f6e; --red-bg:#ff4f6e18;
+    --card-radius:16px; --radius:10px;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow-x:hidden}
+
+  /* NAV */
+  nav{display:flex;align-items:center;gap:16px;padding:0 28px;height:60px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+  .nav-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .nav-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .badge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.05em}
+  .nav-tabs{display:flex;gap:4px;margin:0 auto}
+  .nav-tab{padding:8px 20px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+  .nav-tab:hover{color:var(--text);background:var(--bg3)}
+  .nav-tab.active{color:#fff;background:var(--bg3);box-shadow:inset 0 -2px 0 var(--accent)}
+  .nav-actions{display:flex;gap:12px;margin-left:auto;align-items:center}
+  .api-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:4px 10px;border-radius:20px;border:1px solid var(--border)}
+  .api-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:.3s}
+  .api-dot.ok{background:var(--green)}
+  .api-dot.err{background:var(--red)}
+  .icon-btn{width:36px;height:36px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);transition:.15s}
+  .icon-btn:hover{background:var(--bg4);color:var(--text)}
+
+  /* PAGE */
+  .page{display:none;padding:24px 28px;min-height:calc(100vh - 100px)}
+  .page.active{display:block}
+
+  /* SEARCH */
+  .search-wrap{position:relative;margin-bottom:24px}
+  .search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.4}
+  .search-input{width:100%;padding:12px 14px 12px 42px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none;transition:.2s}
+  .search-input:focus{border-color:var(--accent);background:var(--bg3)}
+  .search-input::placeholder{color:var(--text3)}
+
+  /* SKELETON */
+  .skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* MARKET GRID */
+  .market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .asset-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-radius);padding:18px;cursor:pointer;transition:.2s;position:relative;overflow:hidden}
+  .asset-card:hover{border-color:var(--border2);background:var(--bg3);transform:translateY(-1px)}
+  .asset-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .asset-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .asset-name{font-weight:600;font-size:15px;line-height:1.2}
+  .asset-symbol{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+  .asset-price{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+  .asset-change{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;margin-bottom:14px}
+  .change-up{color:var(--green)} .change-down{color:var(--red)}
+  .mini-chart{height:48px;width:100%}
+  .section-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:20px 0 12px;display:flex;align-items:center;gap:8px}
+  .section-count{background:var(--bg3);border-radius:10px;padding:2px 8px;font-size:10px;color:var(--text2)}
+
+  /* LOADER */
+  .loading-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .loading-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-radius);padding:18px;height:168px}
+
+  /* PORTFOLIO */
+  .port-grid{display:grid;grid-template-columns:1fr 1.8fr 1fr;gap:16px;margin-bottom:16px}
+  @media(max-width:1100px){.port-grid{grid-template-columns:1fr 1fr} .port-right{grid-column:1/-1}}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-radius);padding:22px}
+  .card-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .total-val{font-size:34px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:12px}
+  .meta-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text2);margin-bottom:6px}
+  .meta-val{font-weight:500;color:var(--text)}
+  .pnl-good{color:var(--green);font-weight:600} .pnl-bad{color:var(--red);font-weight:600}
+  .donut-wrap{position:relative;width:180px;height:180px;margin:0 auto 16px}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+  .donut-center .val{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .donut-center .lbl{font-size:10px;color:var(--text3)}
+  .legend{display:flex;flex-direction:column;gap:7px}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+  .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .legend-name{flex:1;color:var(--text2)} .legend-pct{font-family:'JetBrains Mono',monospace;font-weight:500}
+  .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-radius);padding:22px;margin-bottom:16px}
+  .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+  .chart-title{font-weight:600;font-size:15px}
+  .time-tabs{display:flex;gap:4px}
+  .time-tab{padding:5px 12px;border-radius:7px;border:none;background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:.15s}
+  .time-tab.active{background:var(--accent);color:#fff}
+  .time-tab:hover:not(.active){background:var(--bg3);color:var(--text)}
+  .chart-meta{display:flex;gap:24px}
+  .chart-meta-item label{font-size:11px;color:var(--text2)}
+  .chart-meta-item .v{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .form-group{margin-bottom:14px}
+  .form-label{font-size:12px;color:var(--text2);margin-bottom:6px;display:block}
+  .form-input{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none;transition:.2s}
+  .form-input:focus{border-color:var(--accent)}
+  .form-input::placeholder{color:var(--text3)}
+  .form-hint{font-size:11px;color:var(--text3);margin-top:4px}
+  .btn-primary{width:100%;padding:11px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-primary:hover{background:var(--accent2);transform:translateY(-1px)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--text3);font-weight:500;padding:0 12px 12px;font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+  td{padding:12px;border-top:1px solid var(--border)}
+  .asset-cell{display:flex;align-items:center;gap:10px}
+  .tbl-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .btn-remove{padding:5px 12px;background:transparent;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;transition:.15s}
+  .btn-remove:hover{background:var(--red);color:#fff}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .no-assets{text-align:center;padding:40px;color:var(--text3);font-size:14px}
+  .status-bar{display:flex;align-items:center;gap:6px;padding:12px 28px;background:var(--bg2);border-top:1px solid var(--border);font-size:12px;color:var(--text3)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none;max-width:300px}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.success{border-color:var(--green);color:var(--green)}
+  .toast.error{border-color:var(--red);color:var(--red)}
+  .refresh-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.3s}
+  .refresh-btn:hover{color:var(--text);border-color:var(--border2)}
+  .refresh-btn.spinning svg{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .price-flash-up{animation:flashUp .5s}
+  .price-flash-down{animation:flashDown .5s}
+  @keyframes flashUp{0%,100%{color:inherit}50%{color:var(--green)}}
+  @keyframes flashDown{0%,100%{color:inherit}50%{color:var(--red)}}
+  .error-banner{background:var(--red-bg);border:1px solid var(--red);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--red);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    </div>
+    Market Dashboard
+    <span class="badge">V2</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('market')">Market</button>
+    <button class="nav-tab" onclick="switchPage('portfolio')">Portfolio</button>
+  </div>
+  <div class="nav-actions">
+    <div class="api-status" id="api-status">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-label">connecting…</span>
+    </div>
+    <div class="icon-btn" title="Account">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+  </div>
+</nav>
+
+<!-- MARKET PAGE -->
+<div class="page active" id="page-market">
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" id="search-input" placeholder="ค้นหาสินทรัพย์ (BTC, AAPL, GOLD…)" oninput="filterAssets(this.value)">
+  </div>
+  <div id="market-error" style="display:none" class="error-banner">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span id="market-error-msg"></span>
+  </div>
+  <div id="market-content">
+    <div class="section-label">Cryptocurrency</div>
+    <div class="loading-grid" id="grid-crypto">
+      ${[...Array(5)].map(()=>'<div class="loading-card skeleton"></div>').join('')}
+    </div>
+    <div class="section-label">Stocks</div>
+    <div class="loading-grid" id="grid-stocks">
+      ${[...Array(6)].map(()=>'<div class="loading-card skeleton"></div>').join('')}
+    </div>
+    <div class="section-label">Indices & Commodities</div>
+    <div class="loading-grid" id="grid-other">
+      ${[...Array(5)].map(()=>'<div class="loading-card skeleton"></div>').join('')}
+    </div>
+  </div>
+</div>
+
+<!-- PORTFOLIO PAGE -->
+<div class="page" id="page-portfolio">
+  <div class="port-grid">
+    <div class="card">
+      <div class="card-title">Portfolio Summary
+        <button class="refresh-btn" id="port-refresh-btn" onclick="loadPortfolio(true)" title="Refresh">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-8.49"/></svg>
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Total Value</div>
+      <div class="total-val" id="pt-total">$0.00</div>
+      <div class="meta-row"><span>Total Invested</span><span class="meta-val mono" id="pt-invested">$0.00</span></div>
+      <div class="meta-row"><span>Total P/L</span><span id="pt-pnl">—</span></div>
+      <div class="meta-row"><span>Assets</span><span class="meta-val" id="pt-count">0</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Portfolio Allocation</div>
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <div class="donut-wrap">
+          <canvas id="donut-chart" width="180" height="180"></canvas>
+          <div class="donut-center">
+            <div class="val" id="donut-total">$0</div>
+            <div class="lbl">Total</div>
+          </div>
+        </div>
+        <div class="legend" id="donut-legend"><div style="color:var(--text3);font-size:12px">ยังไม่มีสินทรัพย์</div></div>
+      </div>
+    </div>
+
+    <div class="card port-right">
+      <div class="card-title">Add Asset to Portfolio</div>
+      <div class="form-group">
+        <label class="form-label">Symbol (e.g. BTC, AAPL, GOLD)</label>
+        <input class="form-input" id="add-symbol" placeholder="Enter symbol" oninput="this.value=this.value.toUpperCase();lookupSymbol(this.value)">
+        <div class="form-hint" id="symbol-hint"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount (USD)</label>
+        <input class="form-input" id="add-amount" type="number" placeholder="Enter amount" min="0" oninput="calcQty()">
+        <div class="form-hint" id="qty-hint"></div>
+      </div>
+      <button class="btn-primary" id="add-btn" onclick="addAsset()">
+        Add to Portfolio
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">Portfolio Value Over Time</div>
+      <div class="time-tabs" id="time-tabs">
+        <button class="time-tab" onclick="setTf('1D')">1D</button>
+        <button class="time-tab" onclick="setTf('1W')">1W</button>
+        <button class="time-tab active" onclick="setTf('1M')">1M</button>
+        <button class="time-tab" onclick="setTf('3M')">3M</button>
+        <button class="time-tab" onclick="setTf('1Y')">1Y</button>
+        <button class="time-tab" onclick="setTf('ALL')">ALL</button>
+      </div>
+      <div class="chart-meta">
+        <div class="chart-meta-item"><label>Total Value</label><div class="v mono" id="chart-val">$0.00</div></div>
+        <div class="chart-meta-item"><label>Total P/L</label><div class="v" id="chart-pnl">—</div></div>
+      </div>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="port-chart" role="img" aria-label="Portfolio value over time"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Your Assets</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th><th>Quantity</th><th>Avg. Price</th><th>Current Price</th><th>Value</th><th>P/L</th><th>P/L (%)</th><th>Allocation</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="assets-table"><tr><td colspan="9" class="no-assets">กำลังโหลด…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="dot" id="live-dot"></div>
+  <span id="status-text">กำลังเชื่อมต่อ…</span>
+  <span style="margin-left:auto">Last updated: <span id="last-updated">—</span></span>
+  <button class="refresh-btn" onclick="refreshMarket(true)" style="margin-left:8px">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-8.49"/></svg>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000/api';
+let marketData = [];
+let portData = [];
+let portSummary = {};
+let donutChart = null, portChart = null;
+let currentTf = '1M';
+let symbolPriceCache = {};
+
+// ─── API HEALTH ───────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`, {signal: AbortSignal.timeout(3000)});
+    if (r.ok) {
+      setApiStatus(true);
+      return true;
+    }
+  } catch {}
+  setApiStatus(false);
+  return false;
+}
+
+function setApiStatus(ok) {
+  const dot = document.getElementById('api-dot');
+  const lbl = document.getElementById('api-label');
+  dot.className = 'api-dot ' + (ok ? 'ok' : 'err');
+  lbl.textContent = ok ? 'API online' : 'API offline';
+  document.getElementById('live-dot').style.background = ok ? 'var(--green)' : 'var(--red)';
+  document.getElementById('status-text').textContent = ok ? 'Data delayed 1 min' : 'ไม่สามารถเชื่อมต่อ API ได้ — รัน start.sh ก่อน';
+}
+
+// ─── MARKET ───────────────────────────────────────────────────────────────────
+async function loadMarket() {
+  try {
+    const r = await fetch(`${API}/market`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const json = await r.json();
+    marketData = json.data || [];
+    document.getElementById('market-error').style.display = 'none';
+    renderMarket();
+    updateTime(json.updated_at);
+  } catch (e) {
+    document.getElementById('market-error').style.display = 'flex';
+    document.getElementById('market-error-msg').textContent = `ไม่สามารถดึงข้อมูลได้: ${e.message} — ตรวจสอบว่า backend รันอยู่ที่ localhost:8000`;
+    // fallback: keep old data if any
+    if (!marketData.length) renderSkeletons();
+  }
+}
+
+async function refreshMarket(showSpin=false) {
+  if (showSpin) {
+    const btn = document.querySelector('.status-bar .refresh-btn');
+    btn && btn.classList.add('spinning');
+    await loadMarket();
+    btn && btn.classList.remove('spinning');
+  } else {
+    await loadMarket();
+  }
+}
+
+function renderSkeletons() {}
+
+const CATEGORIES = {
+  crypto:    {label:'Cryptocurrency',   grid:'grid-crypto'},
+  stock:     {label:'Stocks',           grid:'grid-stocks'},
+  index:     {label:'Indices',          grid:'grid-index'},
+  commodity: {label:'Commodities',      grid:'grid-commodity'},
+  forex:     {label:'Forex',            grid:'grid-forex'},
+  other:     {label:'Other',            grid:'grid-other'},
+};
+
+function renderMarket() {
+  const content = document.getElementById('market-content');
+  // build category sections
+  const catMap = {};
+  marketData.forEach(a => {
+    const cat = a.category || 'other';
+    if (!catMap[cat]) catMap[cat] = [];
+    catMap[cat].push(a);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(catMap)) {
+    const meta = CATEGORIES[cat] || {label: cat, grid: 'grid-'+cat};
+    html += `<div class="section-label">${meta.label} <span class="section-count">${items.length}</span></div>`;
+    html += `<div class="market-grid" id="${meta.grid}" data-cat="${cat}">`;
+    items.forEach(a => { html += cardHTML(a); });
+    html += `</div>`;
+  }
+  content.innerHTML = html;
+
+  // draw sparks
+  marketData.forEach(a => drawSpark(a));
+}
+
+function cardHTML(a) {
+  const up = a.change_pct >= 0;
+  const sign = up ? '+' : '';
+  return `<div class="asset-card" id="card-${a.symbol}">
+    <div class="asset-header">
+      <div class="asset-icon" style="background:${a.bg};color:${a.color}">${a.icon}</div>
+      <div><div class="asset-name">${a.name}</div><div class="asset-symbol">${a.symbol}</div></div>
+    </div>
+    <div class="asset-price" id="price-${a.symbol}">$${fmt(a.price)}</div>
+    <div class="asset-change ${up?'change-up':'change-down'}" id="change-${a.symbol}">
+      ${sign}${fmt(a.change)} (${sign}${a.change_pct.toFixed(2)}%) ${up?'↑':'↓'}
+    </div>
+    <canvas class="mini-chart" id="spark-${a.symbol}" height="48"></canvas>
+  </div>`;
+}
+
+const sparkData = {};
+function drawSpark(a) {
+  const cv = document.getElementById('spark-'+a.symbol);
+  if (!cv) return;
+  if (!sparkData[a.symbol]) sparkData[a.symbol] = genSpark(a.change_pct >= 0);
+  const data = sparkData[a.symbol];
+  const up = a.change_pct >= 0;
+  const ctx = cv.getContext('2d');
+  const w = cv.offsetWidth || 200, h = 48;
+  cv.width = w;
+  const min = Math.min(...data), max = Math.max(...data), range = max-min||1;
+  const pts = data.map((v,i) => ({x:i/(data.length-1)*w, y:h-(v-min)/range*h*.85-4}));
+  ctx.clearRect(0,0,w,h);
+  const col = up ? '#22d87a' : '#ff4f6e';
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  const grd = ctx.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0, up?'#22d87a30':'#ff4f6e30');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd; ctx.fill();
+}
+
+function genSpark(up, n=40) {
+  const arr=[]; let v=50;
+  for(let i=0;i<n;i++){v+=Math.random()*6-3+(up?.8:-.5); arr.push(Math.max(10,Math.min(90,v)));}
+  return arr;
+}
+
+function filterAssets(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.asset-card').forEach(card => {
+    const sym = card.id.replace('card-','').toLowerCase();
+    const a = marketData.find(x=>x.symbol===sym.toUpperCase());
+    const match = !q || sym.includes(q) || (a && a.name.toLowerCase().includes(q));
+    card.style.display = match ? '' : 'none';
+  });
+  // hide empty grids
+  document.querySelectorAll('.market-grid').forEach(grid => {
+    const visible = [...grid.children].some(c=>c.style.display!=='none');
+    grid.style.display = visible ? '' : 'none';
+    const label = grid.previousElementSibling;
+    if (label?.classList.contains('section-label')) label.style.display = visible ? '' : 'none';
+  });
+}
+
+// ─── SYMBOL LOOKUP ────────────────────────────────────────────────────────────
+let lookupTimer = null;
+async function lookupSymbol(sym) {
+  clearTimeout(lookupTimer);
+  if (sym.length < 1) { document.getElementById('symbol-hint').textContent=''; return; }
+  lookupTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`${API}/search?q=${sym}`);
+      const json = await r.json();
+      if (json.data?.length) {
+        const match = json.data[0];
+        const p = symbolPriceCache[match.symbol];
+        document.getElementById('symbol-hint').textContent = `${match.name} — ${p ? '$'+fmt(p) : 'กำลังดึงราคา…'}`;
+        if (!p) fetchSymbolPrice(match.symbol);
+      } else {
+        document.getElementById('symbol-hint').textContent = '';
+      }
+    } catch {}
+  }, 400);
+}
+
+async function fetchSymbolPrice(sym) {
+  try {
+    const r = await fetch(`${API}/market/${sym}`);
+    const json = await r.json();
+    symbolPriceCache[sym] = json.price;
+    const hint = document.getElementById('symbol-hint');
+    if (hint) hint.textContent = `${json.name} — $${fmt(json.price)}`;
+    calcQty();
+  } catch {}
+}
+
+function calcQty() {
+  const sym = document.getElementById('add-symbol').value.trim().toUpperCase();
+  const amt = parseFloat(document.getElementById('add-amount').value);
+  const hint = document.getElementById('qty-hint');
+  const price = symbolPriceCache[sym] || marketData.find(a=>a.symbol===sym)?.price;
+  if (price && amt > 0) {
+    hint.textContent = `≈ ${(amt/price).toFixed(6)} ${sym} @ $${fmt(price)}`;
+  } else {
+    hint.textContent = '';
+  }
+}
+
+// ─── PORTFOLIO ────────────────────────────────────────────────────────────────
+async function loadPortfolio(showSpin=false) {
+  if (showSpin) {
+    const btn = document.getElementById('port-refresh-btn');
+    btn.classList.add('spinning');
+  }
+  try {
+    const r = await fetch(`${API}/portfolio`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const json = await r.json();
+    portData = json.data || [];
+    portSummary = json.summary || {};
+    renderPortfolioSummary();
+    renderDonut();
+    renderTable();
+    renderPortChart();
+    updateTime(json.updated_at);
+  } catch (e) {
+    showToast('ไม่สามารถโหลด portfolio: '+e.message, 'error');
+  }
+  const btn = document.getElementById('port-refresh-btn');
+  btn.classList.remove('spinning');
+}
+
+function renderPortfolioSummary() {
+  const {total_value=0, total_invested=0, total_pnl=0, total_pnl_pct=0} = portSummary;
+  document.getElementById('pt-total').textContent = '$'+fmtM(total_value);
+  document.getElementById('pt-invested').textContent = '$'+fmtM(total_invested);
+  document.getElementById('pt-count').textContent = portData.length + ' รายการ';
+  document.getElementById('donut-total').textContent = '$'+fmtK(total_value);
+  document.getElementById('chart-val').textContent = '$'+fmtM(total_value);
+  const up = total_pnl >= 0;
+  const sign = up?'+':'';
+  document.getElementById('pt-pnl').innerHTML = `<span class="${up?'pnl-good':'pnl-bad'} mono">${sign}$${fmtM(Math.abs(total_pnl))} (${sign}${total_pnl_pct.toFixed(2)}%)</span>`;
+  document.getElementById('chart-pnl').innerHTML = `<span class="${up?'pnl-good':'pnl-bad'} mono">${sign}$${fmtM(Math.abs(total_pnl))} (${sign}${total_pnl_pct.toFixed(2)}%)</span>`;
+}
+
+const PIE_COLORS = ['#7c6fff','#22d87a','#f5a623','#e82127','#00c8ff','#ff4f6e','#a78bfa','#34d399','#fbbf24'];
+
+function renderDonut() {
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  if (!portData.length) {
+    ctx.clearRect(0,0,180,180);
+    document.getElementById('donut-legend').innerHTML = '<div style="color:var(--text3);font-size:12px">ยังไม่มีสินทรัพย์</div>';
+    return;
+  }
+  const vals = portData.map(p=>p.value);
+  const colors = portData.map((_,i)=>PIE_COLORS[i%PIE_COLORS.length]);
+  donutChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:portData.map(p=>p.symbol), datasets:[{data:vals, backgroundColor:colors, borderWidth:2, borderColor:'#131620', hoverBorderColor:'#131620'}]},
+    options:{responsive:false, cutout:'72%', plugins:{legend:{display:false}, tooltip:{callbacks:{label:i=>{const t=portData.reduce((s,p)=>s+p.value,0); return ` ${i.label}: ${(i.raw/t*100).toFixed(1)}%`;}}}}, animation:{animateRotate:true,duration:600}}
+  });
+  document.getElementById('donut-legend').innerHTML = portData.map((p,i)=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${colors[i]}"></div>
+      <span class="legend-name">${p.symbol}</span>
+      <span class="legend-pct">${p.allocation.toFixed(1)}%</span>
+    </div>`).join('');
+}
+
+function renderTable() {
+  const tbody = document.getElementById('assets-table');
+  if (!portData.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="no-assets">ยังไม่มีสินทรัพย์ในพอร์ต<br><span style="font-size:12px;margin-top:4px;display:block">เพิ่มสินทรัพย์ด้วยฟอร์มด้านบน</span></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = portData.map(p => {
+    const up = p.pnl >= 0; const sign = up?'+':'';
+    return `<tr>
+      <td><div class="asset-cell"><div class="tbl-icon" style="background:${p.bg};color:${p.color}">${p.icon}</div><div><div style="font-weight:600">${p.symbol}</div><div style="font-size:11px;color:var(--text3)">${p.name}</div></div></div></td>
+      <td class="mono">${p.qty.toFixed(6)}</td>
+      <td class="mono">$${fmt(p.avg_price)}</td>
+      <td class="mono">$${fmt(p.current_price)}</td>
+      <td class="mono">$${fmtM(p.value)}</td>
+      <td class="mono ${up?'pnl-good':'pnl-bad'}">${sign}$${fmtM(Math.abs(p.pnl))}</td>
+      <td class="mono ${up?'pnl-good':'pnl-bad'}">${sign}${p.pnl_pct.toFixed(2)}%</td>
+      <td class="mono">${p.allocation.toFixed(1)}%</td>
+      <td><button class="btn-remove" onclick="removeAsset('${p.symbol}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPortChart() {
+  const ctx = document.getElementById('port-chart').getContext('2d');
+  const tv = portSummary.total_value || 0;
+  const ti = portSummary.total_invested || 0;
+  const {labels, data} = genPortHistory(currentTf, tv, ti);
+  if (portChart) portChart.destroy();
+  const grd = ctx.createLinearGradient(0,0,0,220);
+  grd.addColorStop(0,'#7c6fff50'); grd.addColorStop(1,'#7c6fff00');
+  portChart = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets:[{label:'Value', data, fill:true, backgroundColor:grd, borderColor:'#7c6fff', borderWidth:2, pointRadius:0, tension:.4}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false, callbacks:{label:i=>`$${fmtM(i.raw)}`}}}, scales:{x:{grid:{color:'#ffffff08'}, ticks:{color:'#5a6178',font:{size:11}}}, y:{grid:{color:'#ffffff08'}, ticks:{color:'#5a6178',font:{size:11},callback:v=>`$${fmtK(v)}`}}}}
+  });
+}
+
+function genPortHistory(tf, cur, inv) {
+  const n = {['1D']:48,['1W']:28,['1M']:30,['3M']:90,['1Y']:52,['ALL']:60}[tf]||30;
+  const start = inv || cur*.83;
+  const labels=[], data=[];
+  const now = new Date();
+  for (let i=0;i<n;i++) {
+    const t = new Date(now);
+    if (tf==='1D') { t.setMinutes(t.getMinutes()-(n-i)*30); labels.push(t.toLocaleTimeString('th',{hour:'2-digit',minute:'2-digit'})); }
+    else { t.setDate(t.getDate()-(n-i)*(tf==='3M'?3:tf==='1Y'?7:tf==='ALL'?14:1)); labels.push(t.toLocaleDateString('en',{month:'short',day:'numeric'})); }
+    const pct = i/(n-1);
+    const noise = (Math.random()-.4)*(cur*.025);
+    data.push(start + (cur-start)*Math.pow(pct,.7) + noise*(1-pct));
+  }
+  data[n-1] = cur;
+  return {labels, data};
+}
+
+async function addAsset() {
+  const sym = document.getElementById('add-symbol').value.trim().toUpperCase();
+  const amt = parseFloat(document.getElementById('add-amount').value);
+  if (!sym) return showToast('กรุณาใส่ Symbol','error');
+  if (!amt || amt <= 0) return showToast('กรุณาใส่ Amount ที่ถูกต้อง','error');
+
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true; btn.textContent = 'กำลังเพิ่ม…';
+  try {
+    const r = await fetch(`${API}/portfolio`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({symbol:sym, amount_usd:amt})
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.detail || 'Error');
+    showToast(`เพิ่ม ${sym} เรียบร้อยแล้ว ✓`, 'success');
+    document.getElementById('add-symbol').value='';
+    document.getElementById('add-amount').value='';
+    document.getElementById('symbol-hint').textContent='';
+    document.getElementById('qty-hint').textContent='';
+    await loadPortfolio();
+  } catch(e) {
+    showToast(`ผิดพลาด: ${e.message}`, 'error');
+  }
+  btn.disabled=false;
+  btn.innerHTML='Add to Portfolio <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+}
+
+async function removeAsset(sym) {
+  if (!confirm(`ต้องการลบ ${sym} ออกจากพอร์ตหรือไม่?`)) return;
+  try {
+    const r = await fetch(`${API}/portfolio/${sym}`, {method:'DELETE'});
+    if (!r.ok) throw new Error((await r.json()).detail);
+    showToast(`ลบ ${sym} เรียบร้อย`, 'success');
+    await loadPortfolio();
+  } catch(e) {
+    showToast(`ผิดพลาด: ${e.message}`, 'error');
+  }
+}
+
+function setTf(tf) {
+  currentTf = tf;
+  document.querySelectorAll('.time-tab').forEach(b=>b.classList.toggle('active', b.textContent===tf));
+  renderPortChart();
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (n===undefined||n===null) return '—';
+  if (n>=1000) return n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (n>=1) return n.toFixed(2);
+  return n.toFixed(6);
+}
+function fmtM(n) { return n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtK(n) {
+  if (n>=1e6) return (n/1e6).toFixed(1)+'M';
+  if (n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toFixed(0);
+}
+function updateTime(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  document.getElementById('last-updated').textContent = d.toLocaleTimeString('th');
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.className='toast', 3000);
+}
+function switchPage(p) {
+  document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='page-'+p));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===p));
+  if (p==='portfolio') loadPortfolio();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async () => {
+  const ok = await checkHealth();
+  await loadMarket();
+  // auto-refresh every 60s
+  setInterval(async () => {
+    await checkHealth();
+    await loadMarket();
+    if (document.getElementById('page-portfolio').classList.contains('active')) {
+      await loadPortfolio();
+    }
+  }, 60000);
+})();
+
+window.addEventListener('resize', () => {
+  marketData.forEach(a => drawSpark(a));
+});
+</script>
+</body>
+</html>
